@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Contagem</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #000000;
+            font-family: 'Montserrat', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+
+        
+        #canvas-particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .fog {
+            position: absolute;
+            width: 200%;
+            height: 100%;
+            background: url('https://raw.githubusercontent.com/atloomer/atloomer.github.io/master/img/fog.png') repeat-x;
+            background-size: contain;
+            opacity: 0.1;
+            z-index: 2;
+            bottom: 0;
+            animation: drift 30s linear infinite; /* VELOCIDADE DOBRADA */
+            pointer-events: none;
+        }
+
+        .floating-img {
+            position: absolute;
+            z-index: 3;
+            opacity: 0.25;
+            filter: blur(1px) drop-shadow(0 0 10px rgba(4, 48, 6, 0.4));
+            pointer-events: none;
+            /* Animação mais frenética */
+            animation: float-around 8s ease-in-out infinite alternate; 
+        }
+
+        @keyframes float-around {
+            0% { transform: translate(0, 0) rotate(0deg) scale(1); }
+            100% { transform: translate(60px, -60px) rotate(15deg) scale(1.1); }
+        }
+
+        @keyframes drift {
+            from { transform: translateX(0); }
+            to { transform: translateX(-50%); }
+        }
+
+        /* --- Conteúdo Central --- */
+        .content {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            width: 100%;
+            padding: 40px 20px; /* Mais respiro interno */
+        }
+
+        .logo {
+            width: 85%;
+            max-width: 550px;
+            height: auto;
+            margin-bottom: 50px; /* Mais espaço entre logo e timer */
+            filter: drop-shadow(0 0 20px rgba(7, 29, 4, 0.5));
+        }
+
+        /* --- Timer com Espaçamento Corrigido --- */
+        .timer-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 25px; /* Mais espaço entre as colunas */
+            width: 100%;
+        }
+
+        .time-segment {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 80px;
+        }
+
+        .time-value {
+            font-size: clamp(2.2rem, 12vw, 4.5rem);
+            font-weight: 900;
+            background: linear-gradient(180deg, #fff 40%, #01290e 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 0.9;
+        }
+
+        .time-label {
+            font-size: clamp(0.6rem, 2.5vw, 0.75rem);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: #042b17;
+            margin-top: 12px;
+            font-weight: 700;
+        }
+
+        .divider {
+            font-size: clamp(1.5rem, 8vw, 3rem);
+            color: rgba(8, 121, 8, 0.4);
+            align-self: flex-start;
+            margin-top: 5px;
+        }
+
+        /* --- Ajustes Mobile --- */
+        @media (max-width: 600px) {
+            .content { padding-bottom: 80px; } /* Empurra tudo um pouco para cima para não colar na base */
+            .logo { margin-bottom: 40px; width: 75%; }
+            .timer-container { gap: 10px; }
+            .time-segment { min-width: 65px; }
+            .divider { display: none; } /* Remove divisores no celular para não apertar os números */
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="canvas-particles"></canvas>
+    <div class="fog"></div>
+    <div id="floating-assets"></div>
+
+    <div class="content">
+        <img src="logo.png" alt="Logo" class="logo">
+        
+        <div class="timer-container">
+            <div class="time-segment">
+                <div id="days" class="time-value">00</div>
+                <div class="time-label">Dias</div>
+            </div>
+            <div class="divider">:</div>
+            <div class="time-segment">
+                <div id="hours" class="time-value">00</div>
+                <div class="time-label">Horas</div>
+            </div>
+            <div class="divider">:</div>
+            <div class="time-segment">
+                <div id="minutes" class="time-value">00</div>
+                <div class="time-label">Min</div>
+            </div>
+            <div class="divider">:</div>
+            <div class="time-segment">
+                <div id="seconds" class="time-value">00</div>
+                <div class="time-label">Seg</div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="bg-music" loop>
+        <source src="musica.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        const imageSources = ['espada.webp', 'tnt.png', 'nether.gif'];
+        const assetsContainer = document.getElementById('floating-assets');
+
+        function createFloatingImages() {
+            assetsContainer.innerHTML = '';
+            const isMobile = window.innerWidth < 600;
+            
+            // Posições bem espalhadas
+            const positions = [
+                { l: '5vw', t: '15vh' },
+                { l: '75vw', t: '20vh' },
+                { l: '45vw', t: '75vh' }
+            ];
+
+            positions.forEach((pos, i) => {
+                const img = document.createElement('img');
+                img.src = imageSources[i % imageSources.length];
+                img.className = 'floating-img';
+                img.style.left = pos.l;
+                img.style.top = pos.t;
+                img.style.width = isMobile ? '90px' : '160px';
+                // Velocidade variada e rápida
+                img.style.animationDuration = (6 + i) + 's';
+                assetsContainer.appendChild(img);
+            });
+        }
+
+        // Canvas Partículas
+        const canvas = document.getElementById('canvas-particles');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', () => { resize(); createFloatingImages(); });
+        resize();
+
+        class Particle {
+            constructor() { this.reset(); }
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 3.2;
+                this.speedX = Math.random() * 0.4 - 0.2; // Partículas mais rápidas
+                this.speedY = Math.random() * 0.4 - 0.2;
+                this.opacity = Math.random() * 0.5;
+            }
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) this.reset();
+            }
+            draw() {
+                ctx.fillStyle = `rgba(8, 84, 16, ${this.opacity})`;
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+
+        for (let i = 0; i < 60; i++) particles.push(new Particle());
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => { p.update(); p.draw(); });
+            requestAnimationFrame(animate);
+        }
+
+        createFloatingImages();
+        animate();
+
+        // Timer
+        const target = new Date("December 5, 2026 00:00:00").getTime();
+        function updateTimer() {
+            const now = new Date().getTime();
+            const d = target - now;
+            if (d < 0) return;
+            document.getElementById('days').innerText = String(Math.floor(d / (1000 * 60 * 60 * 24))).padStart(2, '0');
+            document.getElementById('hours').innerText = String(Math.floor((d % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))).padStart(2, '0');
+            document.getElementById('minutes').innerText = String(Math.floor((d % (1000 * 60 * 60)) / (1000 * 60))).padStart(2, '0');
+            document.getElementById('seconds').innerText = String(Math.floor((d % (1000 * 60)) / 1000)).padStart(2, '0');
+        }
+        setInterval(updateTimer, 1000);
+        updateTimer();
+
+        // Áudio
+        const audio = document.getElementById("bg-music");
+        audio.volume = 0.3;
+        const playMusic = () => audio.play().catch(() => {});
+        ['mousedown', 'touchstart'].forEach(evt => document.addEventListener(evt, playMusic, { once: true }));
+    </script>
+</body>
+</html>
